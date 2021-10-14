@@ -31,8 +31,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       startTime: true,
       endTime: true,
       selectedCalendars: true,
+      Schedule: {
+        select: {
+          freeBusyTimes: true,
+        },
+      },
     },
   });
+
+  const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+  const workhours =
+    rawUser?.Schedule?.reduce((acc: Array<any>, schedule: any) => {
+      days.forEach((day, index) => {
+        const times = schedule.freeBusyTimes?.[day]?.map((time: any) => {
+          const start = time.start.split(":");
+          const end = time.end.split(":");
+
+          const startTime = parseInt(start[0]) * 60 + parseInt(start[1]);
+          const endTime = parseInt(end[0]) * 60 + parseInt(end[1]);
+
+          return {
+            days: [index],
+            startTime,
+            endTime,
+          };
+        });
+
+        acc.push(...(times ?? []));
+      });
+
+      return acc;
+    }, []) ?? [];
 
   const getEventType = (id: number) =>
     prisma.eventType.findUnique({
@@ -77,7 +107,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     endTime: currentUser.endTime,
     days: [0, 1, 2, 3, 4, 5, 6],
   };
-  const workingHours = eventType?.availability.length
+  const workingHours = workhours.length
+    ? workhours
+    : eventType?.availability.length
     ? eventType.availability
     : // currentUser.availability /* note(zomars) There's no UI nor default for this as of today */
       [defaultAvailability]; /* note(zomars) For now, make every day available as fallback */

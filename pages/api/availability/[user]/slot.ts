@@ -18,6 +18,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ message: "Invalid time range given." });
   }
 
+  if (dateTo.diff(dateFrom, "hours") >= 24) {
+    return res.status(400).json({ message: "Cannot book a slot longer than 24 hours." });
+  }
+
   const rawUser = await prisma.user.findUnique({
     where: {
       username: user as string,
@@ -40,31 +44,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     },
   });
 
-  if (!rawUser) throw new Error("No user found");
-
-  const timeZone = rawUser.timeZone;
+  if (!rawUser) {
+    return res.status(404).json({ message: "No User Found" });
+  }
 
   if (dayjs().isAfter(dateFrom)) {
-    return res.json({
-      timeZone,
-      busy: [],
-      selectedSlots: [],
-      available: false,
-      message: "Cannot book past time",
-    });
+    return res.status(400).json({ message: "Cannot book past time." });
   }
 
   if (
     rawUser.minimumBookingNotice &&
     dayjs().add(rawUser.minimumBookingNotice, "minutes").isAfter(dateFrom)
   ) {
-    return res.json({
-      timeZone,
-      busy: [],
-      selectedSlots: [],
-      available: false,
-      message: "Select a time after minimum notice period",
-    });
+    return res.status(400).json({ message: "Select a time after minimum notice period" });
   }
 
   const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
@@ -91,6 +83,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return acc;
   }, []);
 
+  const timeZone = rawUser.timeZone;
   const defaultAvailability = {
     startTime: rawUser.startTime,
     endTime: rawUser.endTime,
@@ -142,6 +135,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     timeZone,
     busy,
     selectedSlots,
-    available: selectedSlots.length && !bookings.length,
+    available: !!selectedSlots.length && !bookings.length,
   });
 }

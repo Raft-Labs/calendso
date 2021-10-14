@@ -22,10 +22,6 @@
     "lint": "eslint . --ext .ts,.js,.tsx,.jsx",
     "prepare": "husky install"
   },
-  "engines": {
-    "node": "14.x",
-    "yarn": ">=1.19.0 < 2.0.0"
-  },
   "dependencies": {
     "@headlessui/react": "^1.4.1",
     "@daily-co/daily-js": "^0.16.0",

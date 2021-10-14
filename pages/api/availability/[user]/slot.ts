@@ -1,8 +1,13 @@
 import dayjs from "dayjs";
+import timezone from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
 import type { NextApiRequest, NextApiResponse } from "next";
 
 import { asStringOrNull } from "@lib/asStringOrNull";
 import prisma from "@lib/prisma";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const user = asStringOrNull(req.query.user);
@@ -31,10 +36,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           freeBusyTimes: true,
         },
       },
+      minimumBookingNotice: true,
     },
   });
 
   if (!rawUser) throw new Error("No user found");
+
+  const timeZone = rawUser.timeZone;
+
+  if (dayjs().isAfter(dateFrom)) {
+    return res.json({
+      timeZone,
+      busy: [],
+      selectedSlots: [],
+      available: false,
+      message: "Cannot book past time",
+    });
+  }
+
+  if (
+    rawUser.minimumBookingNotice &&
+    dayjs().add(rawUser.minimumBookingNotice, "minutes").isAfter(dateFrom)
+  ) {
+    return res.json({
+      timeZone,
+      busy: [],
+      selectedSlots: [],
+      available: false,
+      message: "Select a time after minimum notice period",
+    });
+  }
 
   const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -60,7 +91,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return acc;
   }, []);
 
-  const timeZone = rawUser.timeZone;
   const defaultAvailability = {
     startTime: rawUser.startTime,
     endTime: rawUser.endTime,

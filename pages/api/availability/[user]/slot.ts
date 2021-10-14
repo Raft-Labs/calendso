@@ -93,19 +93,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   workingHours.sort((a, b) => a.startTime - b.startTime);
 
-  const day = dateFrom.tz(timeZone).day();
+  const startDay = dateFrom.tz(timeZone).day();
+  const endDay = dateTo.tz(timeZone).day();
   const startTime = dateFrom.tz(timeZone).hour() * 60 + dateFrom.tz(timeZone).minute();
   const endTime = dateTo.tz(timeZone).hour() * 60 + dateTo.tz(timeZone).minute();
 
-  // check for slots that include startTime
-  const selectedSlots = workingHours.filter(
-    (slot) =>
-      slot.days.includes(day) &&
-      startTime >= slot.startTime &&
-      startTime <= slot.endTime &&
-      endTime >= slot.startTime &&
-      endTime <= slot.endTime
-  );
+  const selectedSlots =
+    startDay === endDay
+      ? workingHours.filter(
+          (slot) =>
+            slot.days.includes(startDay) &&
+            startTime >= slot.startTime &&
+            startTime <= slot.endTime &&
+            endTime >= slot.startTime &&
+            endTime <= slot.endTime
+        )
+      : workingHours.filter(
+          (slot) =>
+            (slot.days.includes(startDay) &&
+              startTime >= slot.startTime &&
+              (slot.endTime === 1440 || slot.endTime === 0)) ||
+            (slot.days.includes(endDay) && slot.startTime === 0 && endTime == slot.endTime)
+        );
 
   const bookings = await prisma.booking.findMany({
     where: {
@@ -131,10 +140,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return { startTime, endTime };
   });
 
+  let isAvailable;
+
+  if (startDay === endDay) {
+    isAvailable = !!selectedSlots.length && !bookings.length;
+  } else {
+    isAvailable =
+      !!selectedSlots.find(
+        (slot) => slot.days.includes(startDay) && (slot.endTime === 1440 || slot.endTime === 0)
+      ) && !!selectedSlots.find((slot) => slot.days.includes(endDay) && slot.startTime === 0);
+  }
+
   res.status(200).json({
     timeZone,
     busy,
     selectedSlots,
-    available: !!selectedSlots.length && !bookings.length,
+    available: isAvailable,
   });
 }

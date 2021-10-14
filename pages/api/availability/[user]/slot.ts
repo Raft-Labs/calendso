@@ -84,11 +84,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       endTime <= slot.endTime
   );
 
-  // const finalSelection = selectedSlots.filter((slot) => endTime >= slot.startTime && endTime <= slot.endTime);
+  const bookings = await prisma.booking.findMany({
+    where: {
+      userId: rawUser.id,
+      status: "ACCEPTED",
+      confirmed: true,
+      startTime: {
+        gte: dateFrom.toISOString(),
+        lte: dateTo.toISOString(),
+      },
+    },
+    select: {
+      startTime: true,
+      endTime: true,
+    },
+  });
+
+  const busy = bookings.map((slot) => {
+    const startTime =
+      dayjs(slot.startTime).tz(timeZone).hour() * 60 + dayjs(slot.startTime).tz(timeZone).minute();
+    const endTime = dayjs(slot.endTime).tz(timeZone).hour() * 60 + dayjs(slot.endTime).tz(timeZone).minute();
+
+    return { startTime, endTime };
+  });
 
   res.status(200).json({
     timeZone,
-    workingHours: selectedSlots,
-    available: !!selectedSlots.length,
+    busy,
+    selectedSlots,
+    available: selectedSlots.length && !bookings.length,
   });
 }

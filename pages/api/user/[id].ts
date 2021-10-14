@@ -1,31 +1,31 @@
 import { pick } from "lodash";
 import type { NextApiRequest, NextApiResponse } from "next";
 
-import { getSession } from "@lib/auth";
+// import { getSession } from "@lib/auth";
 import prisma from "@lib/prisma";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const session = await getSession({ req: req });
+  // const session = await getSession({ req: req });
 
-  if (!session) {
-    return res.status(401).json({ message: "Not authenticated" });
-  }
+  // if (!session) {
+  //   return res.status(401).json({ message: "Not authenticated" });
+  // }
 
   const userIdQuery = req.query?.id ?? null;
   const userId = Array.isArray(userIdQuery) ? parseInt(userIdQuery.pop()) : parseInt(userIdQuery);
 
-  const authenticatedUser = await prisma.user.findFirst({
-    where: {
-      email: session.user.email,
-    },
-    select: {
-      id: true,
-    },
-  });
+  // const authenticatedUser = await prisma.user.findFirst({
+  //   where: {
+  //     email: session.user.email,
+  //   },
+  //   select: {
+  //     id: true,
+  //   },
+  // });
 
-  if (userId !== authenticatedUser.id) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
+  // if (userId !== authenticatedUser.id) {
+  //   return res.status(401).json({ message: "Unauthorized" });
+  // }
 
   if (req.method === "GET") {
     return res.status(405).json({ message: "Method Not Allowed" });
@@ -36,9 +36,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   if (req.method === "PATCH") {
+    console.log(req.body);
     const updatedUser = await prisma.user.update({
       where: {
-        id: authenticatedUser.id,
+        id: userId,
       },
       data: {
         ...pick(req.body.data, [
@@ -50,6 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           "hideBranding",
           "theme",
           "completedOnboarding",
+          "minimumBookingNotice",
         ]),
         bio: req.body.description ?? req.body.data?.bio,
       },
@@ -71,6 +73,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         createdDate: true,
         plan: true,
         completedOnboarding: true,
+        minimumBookingNotice: true,
       },
     });
     return res.status(200).json({ message: "User Updated", data: updatedUser });
